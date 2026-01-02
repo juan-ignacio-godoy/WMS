@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMS NextGen</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // GLOBAL ERROR HANDLER
+        window.onerror = function (message, source, lineno, colno, error) {
+            document.getElementById('root').innerHTML = `
+                <div class="p-10 text-red-600">
+                    <h1 class="text-2xl font-bold">Error de Javascript</h1>
+                    <p>${message}</p>
+                    <pre class="mt-4 bg-gray-100 p-4 rounded text-xs text-black">${error?.stack}</pre>
+                </div>
+            `;
+        };
+
+        const { useState, useEffect } = React;
+
+        // --- ICONS (Inline SVGs to avoid CDN issues) ---
+        const IconBase = ({ children, size = 24, className = "" }) => (
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width={size}
+                height={size}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={className}
+            >
+                {children}
+            </svg>
+        );
+
+        const LayoutDashboard = (p) => <IconBase {...p}><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></IconBase>;
+        const Package = (p) => <IconBase {...p}><path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></IconBase>;
+        const MapIcon = (p) => <IconBase {...p}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" x2="9" y1="3" y2="18" /><line x1="15" x2="15" y1="6" y2="21" /></IconBase>;
+        const ArrowRightLeft = (p) => <IconBase {...p}><path d="m16 3 4 4-4 4" /><path d="M20 7H4" /><path d="m8 21-4-4 4-4" /><path d="M4 17h16" /></IconBase>;
+        const Settings = (p) => <IconBase {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></IconBase>;
+        const Search = (p) => <IconBase {...p}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></IconBase>;
+        const Bell = (p) => <IconBase {...p}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></IconBase>;
+        const Menu = (p) => <IconBase {...p}><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></IconBase>;
+        const Box = (p) => <IconBase {...p}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" x2="12" y1="22.08" y2="12" /></IconBase>;
+        const AlertTriangle = (p) => <IconBase {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></IconBase>;
+        const TrendingUp = (p) => <IconBase {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></IconBase>;
+        const ArrowDownToLine = (p) => <IconBase {...p}><path d="M12 17V3" /><path d="m6 11 6 6 6-6" /><path d="M19 21H5" /></IconBase>;
+        const ArrowUpFromLine = (p) => <IconBase {...p}><path d="m18 9-6-6-6 6" /><path d="M12 3v14" /><path d="M5 21h14" /></IconBase>;
+        const Check = (p) => <IconBase {...p}><path d="M20 6 9 17l-5-5" /></IconBase>;
+
+        // --- Movement Form Component ---
+        function MovementForm({ onSuccess }) {
+            const [type, setType] = useState('Entrada');
+            const [products, setProducts] = useState([]);
+            const [locations, setLocations] = useState([]);
+
+            const [selectedSku, setSelectedSku] = useState('');
+            const [selectedLoc, setSelectedLoc] = useState('');
+            const [qty, setQty] = useState(1);
+            const [loading, setLoading] = useState(false);
+            const [msg, setMsg] = useState(null);
+
+            // Fetch Products
+            useEffect(() => {
+                fetch('/api/products').then(r => r.json()).then(setProducts);
+            }, []);
+
+            // Fetch Locations based on Type & selection
+            useEffect(() => {
+                if (type === 'Entrada') {
+                    // Show ONLY Free locations
+                    fetch('/api/available-locations?status=Libre').then(r => r.json()).then(setLocations);
+                } else {
+                    // Show Occupied locations (optionally filtered by product if selected)
+                    fetch('/api/available-locations?status=Ocupada').then(r => r.json()).then(locs => {
+                        // If a product is selected, filter locations that have that product
+                        if (selectedSku) {
+                            setLocations(locs.filter(l => l.product_sku === selectedSku));
+                        } else {
+                            setLocations(locs);
+                        }
+                    });
+                }
+            }, [type, selectedSku]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setMsg(null);
+
+                if (!selectedSku || !selectedLoc) {
+                    setMsg({ type: 'error', text: 'Selecciona producto y ubicación' });
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/register-movement', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type, sku: selectedSku, quantity: parseInt(qty), position_id: selectedLoc
+                        })
+                    });
+
+                    if (res.ok) {
+                        setMsg({ type: 'success', text: `Movimiento de ${type} registrado!` });
+                        setQty(1);
+                        setSelectedSku('');
+                        setSelectedLoc('');
+                        if (onSuccess) onSuccess(); // Refresh parent data
+                    } else {
+                        const err = await res.json();
+                        setMsg({ type: 'error', text: err.detail || 'Error al registrar' });
+                    }
+                } catch (err) {
+                    setMsg({ type: 'error', text: 'Error de conexión' });
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 max-w-lg mx-auto mt-10">
+                    <h2 className="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
+                        <ArrowRightLeft size={24} className="text-blue-600" /> Registrar Movimiento
+                    </h2>
+
+                    {msg && (
+                        <div className={`p-3 rounded-lg mb-4 text-sm font-bold ${msg.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {msg.text}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Type Switch */}
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                            {['Entrada', 'Salida'].map(t => (
+                                <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => { setType(t); setSelectedSku(''); setSelectedLoc(''); }}
+                                    className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${type === t ? (t === 'Entrada' ? 'bg-emerald-500 text-white shadow' : 'bg-orange-500 text-white shadow') : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Product Select */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Producto</label>
+                            <select
+                                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={selectedSku}
+                                onChange={e => setSelectedSku(e.target.value)}
+                            >
+                                <option value="">-- Seleccionar --</option>
+                                {products.map(p => (
+                                    <option key={p.sku} value={p.sku}>{p.sku} - {p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Location Select */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                {type === 'Entrada' ? 'Ubicación Destino (Libres)' : 'Ubicación Origen'}
+                            </label>
+                            <select
+                                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={selectedLoc}
+                                onChange={e => setSelectedLoc(e.target.value)}
+                            >
+                                <option value="">-- Seleccionar --</option>
+                                {locations.map(l => (
+                                    <option key={l.position_id} value={l.position_id}>{l.position_id}</option>
+                                ))}
+                            </select>
+                            {locations.length === 0 && <p className="text-xs text-red-500 mt-1">No hay ubicaciones disponibles con este criterio.</p>}
+                        </div>
+
+                        {/* Quantity */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                            <input
+                                type="number" min="1"
+                                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={qty}
+                                onChange={e => setQty(e.target.value)}
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className={`w-full py-3 rounded-lg font-bold text-white transition-all transform active:scale-95 flex justify-center items-center gap-2
+                                ${type === 'Entrada' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-orange-600 hover:bg-orange-700'}
+                                ${loading ? 'opacity-50 cursor-not-allowed' : ''}
+                            `}
+                        >
+                            {loading ? 'Procesando...' : (
+                                <>{type === 'Entrada' ? <ArrowDownToLine size={20} /> : <ArrowUpFromLine size={20} />} Confirmar {type}</>
+                            )}
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        function WMSDesign() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+            const [stats, setStats] = useState([
+                { title: 'Total SKUs', value: '...', change: '', icon: Box, color: 'bg-blue-500' },
+                { title: 'Ocupación', value: '...', change: '', icon: MapIcon, color: 'bg-emerald-500' },
+                { title: 'Movimientos', value: '...', change: '', icon: TrendingUp, color: 'bg-purple-500' },
+            ]);
+            const [recentMoves, setRecentMoves] = useState([]);
+            const [warehouseLocs, setWarehouseLocs] = useState([]);
+
+            // Form State
+            const [formType, setFormType] = useState('Entrada');
+            const [productsList, setProductsList] = useState([]);
+            const [availLocs, setAvailLocs] = useState([]);
+            const [formData, setFormData] = useState({ sku: '', quantity: 1, position_id: '' });
+            const [msg, setMsg] = useState(null);
+
+            // Fetch Data
+            const fetchData = async () => {
+                try {
+                    // 1. Stats
+                    const statsRes = await fetch('/api/dashboard-stats');
+                    if (statsRes.ok) {
+                        const data = await statsRes.json();
+                        // Map icon names to actual components
+                        const mapped = data.map(s => ({
+                            ...s,
+                            icon: s.icon === 'Box' ? Box : s.icon === 'Map' ? MapIcon : TrendingUp
+                        }));
+                        setStats(mapped);
+                    }
+
+                    // 2. Recent Moves
+                    const movesRes = await fetch('/api/recent-moves');
+                    if (movesRes.ok) setRecentMoves(await movesRes.json());
+
+                    // 3. Map
+                    const mapRes = await fetch('/api/warehouse-map');
+                    if (mapRes.ok) setWarehouseLocs(await mapRes.json());
+
+                    // 4. Form Helpers
+                    const prodRes = await fetch('/api/products');
+                    if (prodRes.ok) setProductsList(await prodRes.json());
+
+                    // Fetch locs based on current form type
+                    const statusNeeded = formType === 'Entrada' ? 'Libre' : 'Ocupada';
+                    const locRes = await fetch(`/api/available-locations?status=${statusNeeded}`);
+                    if (locRes.ok) setAvailLocs(await locRes.json());
+
+                } catch (e) { console.error("API Error", e); }
+            };
+
+            useEffect(() => {
+                fetchData();
+                const interval = setInterval(fetchData, 5000);
+                return () => clearInterval(interval);
+            }, [formType]); // Refetch helpers when form type changes
+
+            const handleRegister = async (e) => {
+                e.preventDefault();
+                setMsg(null);
+                try {
+                    const res = await fetch('/api/register-movement', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: formType,
+                            sku: formData.sku,
+                            quantity: parseInt(formData.quantity),
+                            position_id: formData.position_id
+                        })
+                    });
+                    if (res.ok) {
+                        setMsg({ type: 'success', text: 'Movimiento registrado con éxito' });
+                        fetchData(); // Refresh immediately
+                        setFormData({ ...formData, quantity: 1, position_id: '' });
+                    } else {
+                        const err = await res.json();
+                        setMsg({ type: 'error', text: err.detail || 'Error al registrar' });
+                    }
+                } catch (err) {
+                    setMsg({ type: 'error', text: 'Error de conexión' });
+                }
+            };
+
+
+            const renderWarehouseMap = () => {
+                const locs = warehouseLocs.length > 0 ? warehouseLocs : Array.from({ length: 20 }, (_, i) => ({
+                    id: `A-${(i + 1).toString().padStart(2, '0')}`, occupied: false, product: null
+                }));
+
+                return (
+                    <div className="p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-slate-800">Mapa de Almacén en Vivo</h2>
+                            <div className="flex gap-4 text-sm">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-100 border border-red-500 rounded-sm"></div> Ocupado</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-100 border border-emerald-500 rounded-sm"></div> Libre</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                            <h3 className="font-bold text-slate-600 mb-4 flex items-center gap-2">
+                                <MapIcon size={18} /> Pasillo A
+                            </h3>
+                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-3">
+                                {locs.map(pos => (
+                                    <div
+                                        key={pos.id}
+                                        className={`
+                                            relative p-3 rounded-lg border-2 text-center transition-all cursor-pointer hover:shadow-md group
+                                            ${pos.occupied
+                                                ? 'bg-red-50 border-red-200 hover:border-red-400'
+                                                : 'bg-emerald-50 border-emerald-200 hover:border-emerald-400'
+                                            }
+                                        `}
+                                    >
+                                        <span className={`text-xs font-bold ${pos.occupied ? 'text-red-700' : 'text-emerald-700'}`}>
+                                            {pos.id}
+                                        </span>
+                                        <div className="mt-1">
+                                            {pos.occupied ? (
+                                                <Package size={20} className="mx-auto text-red-400" />
+                                            ) : (
+                                                <div className="w-5 h-5 mx-auto border-2 border-dashed border-emerald-300 rounded-full"></div>
+                                            )}
+                                        </div>
+
+                                        {pos.occupied && (
+                                            <div className="absolute hidden group-hover:block z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-slate-800 text-white text-xs p-2 rounded shadow-lg">
+                                                <p className="font-bold">{pos.product || 'Unknown'}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+                    {/* Sidebar */}
+                    <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-white transition-all duration-300 flex flex-col shadow-2xl z-20`}>
+                        <div className="p-4 flex items-center justify-between">
+                            {isSidebarOpen && <div className="font-bold text-xl tracking-tight text-blue-400">LOGI<span className="text-white">TECH</span></div>}
+                            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-800 rounded-lg">
+                                <Menu size={20} />
+                            </button>
+                        </div>
+
+                        <nav className="mt-8 flex-1 px-2 space-y-2">
+                            {[
+                                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                                { id: 'map', label: 'Mapa Almacén', icon: MapIcon },
+                                { id: 'movements', label: 'Registrar Movs', icon: ArrowRightLeft },
+                                { id: 'inventory', label: 'Inventario', icon: Package },
+                            ].map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id)}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors
+                                        ${activeTab === item.id
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
+                                    `}
+                                >
+                                    <item.icon size={20} />
+                                    {isSidebarOpen && <span className="font-medium">{item.label}</span>}
+                                </button>
+                            ))}
+                        </nav>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+                        {/* Header */}
+                        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm">
+                            <div className="flex items-center gap-4 bg-slate-100 px-4 py-2 rounded-full w-96">
+                                <Search size={18} className="text-slate-400" />
+                                <input type="text" placeholder="Buscar..." className="bg-transparent border-none outline-none text-sm w-full text-slate-600 placeholder-slate-400" />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button className="relative p-2 hover:bg-slate-100 rounded-full text-slate-600">
+                                    <Bell size={20} />
+                                </button>
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs border border-blue-200">JG</div>
+                            </div>
+                        </header>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-auto bg-slate-50/50">
+                            {/* DASHBOARD */}
+                            {activeTab === 'dashboard' && (
+                                <div className="p-8 max-w-7xl mx-auto">
+                                    <div className="mb-8">
+                                        <h1 className="text-2xl font-bold text-slate-800">Resumen General</h1>
+                                        <p className="text-slate-500">Bienvenido de nuevo, Juan.</p>
+                                    </div>
+
+                                    {/* Stats */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                        {stats.map((stat, idx) => (
+                                            <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10 text-${stat.color.split('-')[1]}-600`}>
+                                                        {stat.icon && <stat.icon size={24} />}
+                                                    </div>
+                                                    <span className="text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-full">{stat.change}</span>
+                                                </div>
+                                                <div className="text-3xl font-bold text-slate-800 mb-1">{stat.value}</div>
+                                                <div className="text-sm text-slate-400">{stat.title}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Recent Activity */}
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-slate-100"><h3 className="font-bold text-slate-700">Movimientos Recientes</h3></div>
+                                        <table className="w-full text-sm text-left text-slate-600">
+                                            <thead className="bg-slate-50 text-slate-500 font-medium">
+                                                <tr><th className="px-6 py-3">Tipo</th><th className="px-6 py-3">SKU</th><th className="px-6 py-3">Qty</th></tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {recentMoves.map(move => (
+                                                    <tr key={move.id} className="hover:bg-slate-50">
+                                                        <td className="px-6 py-4">
+                                                            {move.type === 'Entrada' ? (
+                                                                <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded text-xs flex items-center gap-1"><ArrowDownToLine size={14} /> In</span>
+                                                            ) : (
+                                                                <span className="text-orange-600 font-bold bg-orange-50 px-2 py-1 rounded text-xs flex items-center gap-1"><ArrowUpFromLine size={14} /> Out</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 font-medium">{move.sku} <span className="text-slate-400 font-normal">({move.name})</span></td>
+                                                        <td className="px-6 py-4 font-bold">{move.qty}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* MAP */}
+                            {activeTab === 'map' && renderWarehouseMap()}
+
+                            {/* MOVEMENTS FORM */}
+                            {activeTab === 'movements' && (
+                                <div className="p-8 max-w-2xl mx-auto">
+                                    <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-100">
+                                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                            <ArrowRightLeft className="text-blue-500" /> Registrar Movimiento
+                                        </h2>
+
+                                        {msg && (
+                                            <div className={`p-4 mb-6 rounded-lg ${msg.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                                {msg.text}
+                                            </div>
+                                        )}
+
+                                        <form onSubmit={handleRegister} className="space-y-6">
+                                            {/* Type Selector */}
+                                            <div className="flex gap-4 p-1 bg-slate-100 rounded-lg">
+                                                {['Entrada', 'Salida'].map(type => (
+                                                    <button
+                                                        type="button"
+                                                        key={type}
+                                                        onClick={() => { setFormType(type); setFormData({ ...formData, position_id: '' }); }}
+                                                        className={`flex-1 py-2 px-4 rounded-md font-bold transition-all ${formType === type
+                                                                ? (type === 'Entrada' ? 'bg-white text-emerald-600 shadow' : 'bg-white text-orange-600 shadow')
+                                                                : 'text-slate-400 hover:text-slate-600'
+                                                            }`}
+                                                    >
+                                                        {type}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* SKU Selector */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Producto (SKU)</label>
+                                                <select
+                                                    className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:border-blue-500 bg-white"
+                                                    value={formData.sku}
+                                                    onChange={e => setFormData({ ...formData, sku: e.target.value })}
+                                                    required
+                                                >
+                                                    <option value="">Seleccionar Producto...</option>
+                                                    {productsList.map(p => (
+                                                        <option key={p.sku} value={p.sku}>{p.sku} - {p.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Quantity */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                                    value={formData.quantity}
+                                                    onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+
+                                            {/* Location Selector */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                    {formType === 'Entrada' ? 'Ubicación Destino (Libres)' : 'Ubicación Origen (Ocupadas)'}
+                                                </label>
+                                                <select
+                                                    className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:border-blue-500 bg-white"
+                                                    value={formData.position_id}
+                                                    onChange={e => setFormData({ ...formData, position_id: e.target.value })}
+                                                    required
+                                                >
+                                                    <option value="">Seleccionar Ubicación...</option>
+                                                    {availLocs
+                                                        .filter(l => formType === 'Entrada' ? true : l.product_sku === formData.sku) // Filter by SKU for exits
+                                                        .map(l => (
+                                                            <option key={l.position_id} value={l.position_id}>
+                                                                {l.position_id} {formType === 'Salida' ? `(Contiene ${l.product_sku})` : ''}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                                {formType === 'Salida' && formData.sku && availLocs.filter(l => l.product_sku === formData.sku).length === 0 && (
+                                                    <p className="text-xs text-red-500 mt-1">Este producto no está en stock.</p>
+                                                )}
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-transform active:scale-95 ${formType === 'Entrada' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-200'
+                                                    }`}
+                                            >
+                                                Confirmar {formType}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* INVENTORY */}
+                            {activeTab === 'inventory' && (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                                    <Package size={64} className="mb-4 opacity-20" />
+                                    <p className="text-lg">Módulo de Inventario (Consulta el Dashboard para totales)</p>
+                                </div>
+                            )}
+
+                            {/* MOVEMENTS FORM TAB */}
+                            {activeTab === 'movements' && ( // Reusing 'movements' id for the form
+                                <div className="p-8">
+                                    <MovementForm onSuccess={() => {
+                                        // Simple way to refresh data: just log or maybe trigger a global refresh if we lifted state up
+                                        console.log("Movement registered, stats will update on next poll");
+                                    }} />
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<WMSDesign />);
+    </script>
+</body>
+
+</html>

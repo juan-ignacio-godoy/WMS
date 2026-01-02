@@ -66,6 +66,21 @@ def get_free_locations():
 def get_occupied_locations_by_sku(sku):
     return run_query("SELECT position_id FROM locations WHERE status = 'Ocupada' AND product_sku = ?", (sku,), fetch_data=True)
 
+def get_inventory():
+    """Calcula el stock actual sumando entradas y restando salidas."""
+    query = '''
+        SELECT 
+            p.sku, 
+            p.name, 
+            p.category, 
+            COALESCE(SUM(CASE WHEN m.type='Entrada' THEN m.quantity WHEN m.type='Salida' THEN -m.quantity ELSE 0 END), 0) as total_quantity
+        FROM products p
+        LEFT JOIN movements m ON p.sku = m.sku
+        GROUP BY p.sku, p.name, p.category
+    '''
+    return run_query(query, fetch_data=True)
+
+
 def register_movement(tipo, sku, qty, position_id):
     """
     Registra un movimiento y actualiza el estado de la ubicación.
@@ -108,9 +123,10 @@ def register_movement(tipo, sku, qty, position_id):
 
 # --- INTERFAZ DE USUARIO ---
 
+st.sidebar.image("logo.png", use_container_width=True)
 st.title("📦 Sistema de Gestión de Almacenes (WMS)")
 
-tab1, tab2 = st.tabs(["📝 Registrar Movimiento", "🗺️ Mapa de Almacén"])
+tab1, tab2, tab3 = st.tabs(["📝 Registrar Movimiento", "🗺️ Mapa de Almacén", "📊 Inventario"])
 
 # --- TAB 1: Registrar Movimiento ---
 with tab1:
@@ -200,3 +216,21 @@ with tab2:
         )
     else:
         st.info("No hay ubicaciones configuradas.")
+
+# --- TAB 3: Inventario ---
+with tab3:
+    st.header("Stock Actual de Productos")
+    
+    inventory_df = get_inventory()
+    
+    if inventory_df is not None and not inventory_df.empty:
+        # Renombrar columnas para visualización
+        inventory_df.columns = ['SKU', 'Producto', 'Categoría', 'Cantidad Total']
+        
+        st.dataframe(
+            inventory_df,
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No hay información de inventario disponible.")
