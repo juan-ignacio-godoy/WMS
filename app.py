@@ -2,11 +2,19 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime
+import os
+from init_db import init_db
 
 # Configuración de la página
 st.set_page_config(page_title="WMS Sencillo", layout="wide")
 
 DB_NAME = "wms.db"
+
+# Auto-initialization check for Streamlit Cloud
+if not os.path.exists(DB_NAME):
+    st.toast("Inicializando base de datos...", icon="⚙️")
+    init_db()
+    st.toast("Base de datos creada exitosamente.", icon="✅")
 
 # --- Funciones de Base de Datos ---
 def run_query(query, params=(), fetch_data=False):
