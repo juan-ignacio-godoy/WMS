@@ -18,7 +18,14 @@ except ImportError:
 
 app = FastAPI()
 
-DB_NAME = "wms.db"
+# Robust Path Handling for Cloud
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
+DB_NAME = os.path.join(BASE_DIR, "wms.db")
+
+@app.head("/")
+async def root_head():
+    return 200
 
 @app.on_event("startup")
 def startup_event():
@@ -169,4 +176,7 @@ def api_register_movement(move: MovementRequest):
 # --- Static Files (Frontend) ---
 @app.get("/")
 async def read_index():
-    return FileResponse('frontend/index.html')
+    index_path = os.path.join(FRONTEND_DIR, 'index.html')
+    if not os.path.exists(index_path):
+        return {"error": "Index file not found", "path": index_path}
+    return FileResponse(index_path)
