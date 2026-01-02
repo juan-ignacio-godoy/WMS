@@ -109,6 +109,20 @@ def get_warehouse_map():
             })
     return result
 
+@app.get("/api/inventory")
+def get_inventory_details():
+    query = '''
+        SELECT 
+            p.sku, 
+            p.name, 
+            p.category, 
+            COALESCE(SUM(CASE WHEN m.type='Entrada' THEN m.quantity WHEN m.type='Salida' THEN -m.quantity ELSE 0 END), 0) as stock
+        FROM products p
+        LEFT JOIN movements m ON p.sku = m.sku
+        GROUP BY p.sku, p.name, p.category
+    '''
+    return run_query(query, fetch_columns=True)
+
 # --- Movement Registration API ---
 
 class MovementRequest(BaseModel):

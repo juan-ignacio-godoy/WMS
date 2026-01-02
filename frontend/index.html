@@ -236,6 +236,7 @@
             ]);
             const [recentMoves, setRecentMoves] = useState([]);
             const [warehouseLocs, setWarehouseLocs] = useState([]);
+            const [inventory, setInventory] = useState([]); // New state for inventory
 
             // Form State
             const [formType, setFormType] = useState('Entrada');
@@ -275,6 +276,10 @@
                     const statusNeeded = formType === 'Entrada' ? 'Libre' : 'Ocupada';
                     const locRes = await fetch(`/api/available-locations?status=${statusNeeded}`);
                     if (locRes.ok) setAvailLocs(await locRes.json());
+
+                    // 5. Inventory (New)
+                    const invRes = await fetch('/api/inventory');
+                    if (invRes.ok) setInventory(await invRes.json());
 
                 } catch (e) { console.error("API Error", e); }
             };
@@ -497,8 +502,8 @@
                                                         key={type}
                                                         onClick={() => { setFormType(type); setFormData({ ...formData, position_id: '' }); }}
                                                         className={`flex-1 py-2 px-4 rounded-md font-bold transition-all ${formType === type
-                                                                ? (type === 'Entrada' ? 'bg-white text-emerald-600 shadow' : 'bg-white text-orange-600 shadow')
-                                                                : 'text-slate-400 hover:text-slate-600'
+                                                            ? (type === 'Entrada' ? 'bg-white text-emerald-600 shadow' : 'bg-white text-orange-600 shadow')
+                                                            : 'text-slate-400 hover:text-slate-600'
                                                             }`}
                                                     >
                                                         {type}
@@ -574,9 +579,55 @@
 
                             {/* INVENTORY */}
                             {activeTab === 'inventory' && (
-                                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                    <Package size={64} className="mb-4 opacity-20" />
-                                    <p className="text-lg">Módulo de Inventario (Consulta el Dashboard para totales)</p>
+                                <div className="p-8 max-w-7xl mx-auto">
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                                            <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                                <Package className="text-blue-500" /> Inventario Actual
+                                            </h3>
+                                        </div>
+                                        <table className="w-full text-sm text-left text-slate-600">
+                                            <thead className="bg-slate-50 text-slate-500 font-medium">
+                                                <tr>
+                                                    <th className="px-6 py-3">SKU</th>
+                                                    <th className="px-6 py-3">Producto</th>
+                                                    <th className="px-6 py-3">Categoría</th>
+                                                    <th className="px-6 py-3 text-right">Stock Total</th>
+                                                    <th className="px-6 py-3 text-center">Estado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {inventory.map(item => (
+                                                    <tr key={item.sku} className="hover:bg-slate-50">
+                                                        <td className="px-6 py-4 font-bold text-slate-800">{item.sku}</td>
+                                                        <td className="px-6 py-4">{item.name}</td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">
+                                                                {item.category}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right font-bold text-lg">{item.stock}</td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            {item.stock > 10 ? (
+                                                                <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full text-xs font-bold">En Stock</span>
+                                                            ) : item.stock > 0 ? (
+                                                                <span className="text-orange-600 bg-orange-50 px-2 py-1 rounded-full text-xs font-bold">Bajo Stock</span>
+                                                            ) : (
+                                                                <span className="text-red-600 bg-red-50 px-2 py-1 rounded-full text-xs font-bold">Sin Stock</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {inventory.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan="5" className="px-6 py-8 text-center text-slate-400">
+                                                            No hay productos registrados.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             )}
 
