@@ -5,18 +5,33 @@ from datetime import datetime
 import os
 from init_db import init_db
 
-# Configuración de la página
+# --- CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="WMS Sencillo", layout="wide")
-
 DB_NAME = "wms.db"
 
-# Auto-initialization check for Streamlit Cloud
-if not os.path.exists(DB_NAME):
-    st.toast("Inicializando base de datos...", icon="⚙️")
-    init_db()
-    st.toast("Base de datos creada exitosamente.", icon="✅")
+# --- VERIFICACIÓN ROBUSTA DE BASE DE DATOS ---
+def check_database_ready():
+    """
+    Intenta leer la tabla 'products'. Si falla, asume que la BD no existe
+    o está corrupta y ejecuta init_db().
+    """
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        # Intentamos una consulta simple para ver si la tabla existe
+        cursor.execute("SELECT 1 FROM products LIMIT 1")
+        conn.close()
+        # Si llega aquí, la tabla existe.
+    except (sqlite3.OperationalError, Exception):
+        # Si falla (ej: no such table: products), inicializamos
+        init_db()
+        st.success("Base de datos creada correctamente en la nube.")
 
-# --- Funciones de Base de Datos ---
+# Ejecutar verificación SIEMPRE antes de cualquier otra cosa
+check_database_ready()
+
+
+# --- FUNCIONES DE BASE DE DATOS ---
 def run_query(query, params=(), fetch_data=False):
     """Ejecuta una consulta SQL y maneja la conexión."""
     try:
@@ -54,7 +69,6 @@ def get_occupied_locations_by_sku(sku):
 def register_movement(tipo, sku, qty, position_id):
     """
     Registra un movimiento y actualiza el estado de la ubicación.
-    transactionalmente seguro (básico para sqlite).
     """
     try:
         conn = sqlite3.connect(DB_NAME)
@@ -92,7 +106,7 @@ def register_movement(tipo, sku, qty, position_id):
         st.error(f"Error al registrar: {e}")
         return False
 
-# --- Interfaz de Usuario ---
+# --- INTERFAZ DE USUARIO ---
 
 st.title("📦 Sistema de Gestión de Almacenes (WMS)")
 
@@ -109,50 +123,51 @@ with tab1:
     
     products_df = get_products()
     
-    if products_df.empty:
+    # Check if dataframe is None before checking logic
+    if products_df is None:
+         st.error("Error crítico conectando a la base de datos.")
+    elif products_df.empty:
         st.warning("No hay productos en la base de datos.")
     else:
         # Selector de Producto
         product_list = products_df['sku'] + " - " + products_df['name']
         selected_product_str = st.selectbox("Seleccionar Producto", product_list)
-        selected_sku = selected_product_str.split(" - ")[0]
-        
-        # Validaciones dinámicas según tipo
-        if tipo_movimiento == "Entrada":
-            st.info("🟢 Ingresando mercancía. Seleccione una ubicación LIBRE.")
-            free_locs = get_free_locations()
+        if selected_product_str:
+            selected_sku = selected_product_str.split(" - ")[0]
             
-            if free_locs.empty:
-                st.error("¡No hay ubicaciones libres disponibles!")
-                location_opts = []
-            else:
-                location_opts = free_locs['position_id'].tolist()
+            # Validaciones dinámicas según tipo
+            if tipo_movimiento == "Entrada":
+                st.info("🟢 Ingresando mercancía. Seleccione una ubicación LIBRE.")
+                free_locs = get_free_locations()
                 
-            selected_pos = st.selectbox("Ubicación Destino", location_opts)
-            
-        else: # Salida
-            st.info("🔴 Retirando mercancía. Seleccione una ubicación donde esté el producto.")
-            occupied_locs = get_occupied_locations_by_sku(selected_sku)
-            
-            if occupied_locs.empty:
-                st.warning(f"El producto {selected_sku} no se encuentra en ninguna ubicación.")
-                location_opts = []
-            else:
-                location_opts = occupied_locs['position_id'].tolist()
-            
-            selected_pos = st.selectbox("Ubicación Origen", location_opts)
+                if free_locs is not None and not free_locs.empty:
+                    location_opts = free_locs['position_id'].tolist()
+                    selected_pos = st.selectbox("Ubicación Destino", location_opts)
+                else:
+                    st.error("¡No hay ubicaciones libres disponibles!")
+                    selected_pos = None
+                    
+            else: # Salida
+                st.info("🔴 Retirando mercancía. Seleccione una ubicación donde esté el producto.")
+                occupied_locs = get_occupied_locations_by_sku(selected_sku)
+                
+                if occupied_locs is not None and not occupied_locs.empty:
+                    location_opts = occupied_locs['position_id'].tolist()
+                    selected_pos = st.selectbox("Ubicación Origen", location_opts)
+                else:
+                    st.warning(f"El producto {selected_sku} no se encuentra en ninguna ubicación.")
+                    selected_pos = None
 
-        qty = st.number_input("Cantidad", min_value=1, value=1)
-        
-        if st.button("Confirmar Movimiento", type="primary"):
-            if not selected_pos:
-                st.error("Debe seleccionar una ubicación válida.")
-            else:
-                success = register_movement(tipo_movimiento, selected_sku, qty, selected_pos)
-                if success:
-                    st.success(f"Movimiento de {tipo_movimiento} realizado con éxito.")
-                    # Rerun para actualizar listas
-                    st.rerun()
+            qty = st.number_input("Cantidad", min_value=1, value=1)
+            
+            if st.button("Confirmar Movimiento", type="primary"):
+                if not selected_pos:
+                    st.error("Debe seleccionar una ubicación válida.")
+                else:
+                    success = register_movement(tipo_movimiento, selected_sku, qty, selected_pos)
+                    if success:
+                        st.success(f"Movimiento de {tipo_movimiento} realizado con éxito.")
+                        st.rerun()
 
 # --- TAB 2: Mapa de Almacén ---
 with tab2:
@@ -161,7 +176,7 @@ with tab2:
 
     locations_df = get_locations()
     
-    if not locations_df.empty:
+    if locations_df is not None and not locations_df.empty:
         # Métricas rápidas
         total_pos = len(locations_df)
         free_pos = len(locations_df[locations_df['status'] == 'Libre'])
